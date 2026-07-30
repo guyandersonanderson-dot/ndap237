@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Home, Search, Plus, MapPin, Phone, Copy, Check, Filter, Building2, Bed, Bath, Maximize, Loader2, AlertCircle, LogOut, User, Trash2, Archive, Shield, CheckCircle2, XCircle, Users, Camera, X, ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
+import { Home, Search, Plus, MapPin, Phone, Copy, Check, Filter, Building2, Bed, Bath, Maximize, Loader2, AlertCircle, LogOut, User, Trash2, Archive, Shield, CheckCircle2, XCircle, Users, Camera, X, ChevronLeft, ChevronRight, ImageIcon, BadgeCheck } from "lucide-react";
 
 const SUPABASE_URL = "https://vpaqnqfszznlsemnppry.supabase.co";
 const SUPABASE_KEY = "sb_publishable_aRhXVeFAcC5_gTYMFBM7cw_hkThQjgu";
@@ -130,9 +130,15 @@ function Catalogue() {
   useEffect(() => { charger(); }, []);
   async function charger() {
     setChargement(true); setErreur(null);
-    const { data, error } = await supabase.from("annonces").select("*, agents(nom_agence, telephone)").eq("statut", "active").order("cree_le", { ascending: false });
+    const { data, error } = await supabase.from("annonces").select("*, agents(nom_agence, telephone, statut_abonnement)").eq("statut", "active").order("cree_le", { ascending: false });
     if (error) { setErreur(error.message); setChargement(false); return; }
-    setAnnonces(data || []); setChargement(false);
+    // Priorité Pro : les annonces d'agents "actif" (Pro) apparaissent en premier
+    const triees = (data || []).sort((a, b) => {
+      const aPro = a.agents?.statut_abonnement === "actif" ? 1 : 0;
+      const bPro = b.agents?.statut_abonnement === "actif" ? 1 : 0;
+      return bPro - aPro; // Pro d'abord, sinon on garde l'ordre par date
+    });
+    setAnnonces(triees); setChargement(false);
   }
   const filtres = annonces.filter((a) => {
     const t = (a.quartier + " " + a.ville + " " + a.type_bien + " " + a.description).toLowerCase();
@@ -154,17 +160,19 @@ function Catalogue() {
 
 function Carte({ a, actions }) {
   const agent = a.agents?.nom_agence || "Agent"; const tel = a.agents?.telephone || ""; const type = a.type_bien || a.type;
+  const estPro = a.agents?.statut_abonnement === "actif";
   const photos = a.photos || [];
   const [idx, setIdx] = useState(0);
   const aDesPhotos = photos.length > 0;
   return (
-    <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.06)", border: "1px solid #EDE7D8", display: "flex", flexDirection: "column" }}>
+    <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: estPro ? "0 4px 16px rgba(200,155,60,0.28)" : "0 2px 10px rgba(0,0,0,0.06)", border: estPro ? "2px solid #C89B3C" : "1px solid #EDE7D8", display: "flex", flexDirection: "column" }}>
       {aDesPhotos ? (
         <div style={{ position: "relative", height: 190, background: "#EDE7D8" }}>
           <img src={photos[idx]} alt={`${type} ${a.quartier}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           {/* dégradé + infos prix par-dessus la photo */}
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(0,0,0,0.55))" }} />
           <span style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.55)", color: "#fff", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{a.transaction}</span>
+          {estPro && <span style={{ position: "absolute", top: 12, left: 12, background: "#C89B3C", color: "#2E5E4E", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", gap: 3 }}><BadgeCheck size={13} /> PRO</span>}
           {photos.length > 1 && (
             <>
               <button onClick={() => setIdx((idx - 1 + photos.length) % photos.length)} style={navPhoto("left")}><ChevronLeft size={18} /></button>
@@ -192,7 +200,7 @@ function Carte({ a, actions }) {
         <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 13, color: "#5A5548" }}>{a.chambres ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bed size={14} /> {a.chambres}</span> : null}{a.sdb ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bath size={14} /> {a.sdb}</span> : null}{a.surface ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Maximize size={14} /> {a.surface} m²</span> : null}</div>
         <p style={{ fontSize: 14, color: "#5A5548", lineHeight: 1.5, margin: "0 0 14px", flex: 1 }}>{a.description}</p>
         <div style={{ borderTop: "1px solid #EDE7D8", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 12, color: "#8A8478" }}>{agent}</div>
+          <div style={{ fontSize: 12, color: "#8A8478", display: "flex", alignItems: "center", gap: 5 }}>{agent}{estPro && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#2E5E4E", fontWeight: 700 }}><BadgeCheck size={14} /> Vérifié</span>}</div>
           {actions ? actions : <a href={`https://wa.me/237${tel}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, background: "#2E5E4E", color: "#fff", padding: "7px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}><Phone size={14} /> Contacter</a>}
         </div>
       </div>
@@ -215,7 +223,7 @@ function MesAnnonces({ profil }) {
         : annonces.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: "#8A8478" }}>Vous n'avez pas encore d'annonce.</div>
         : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>{annonces.map((a) => (
             <div key={a.id} style={{ opacity: a.statut === "archivee" ? 0.55 : 1 }}>
-              <Carte a={{ ...a, agents: { nom_agence: profil.nom_agence, telephone: profil.telephone } }} actions={
+              <Carte a={{ ...a, agents: { nom_agence: profil.nom_agence, telephone: profil.telephone, statut_abonnement: profil.statut_abonnement } }} actions={
                 <div style={{ display: "flex", gap: 6 }}>
                   {a.statut === "active" && <button onClick={() => archiver(a.id)} title="Marquer comme loué/vendu" style={miniBtn}><Archive size={14} /></button>}
                   <button onClick={() => supprimer(a.id)} title="Supprimer" style={{ ...miniBtn, color: "#A63D2A" }}><Trash2 size={14} /></button>
@@ -308,7 +316,7 @@ function Deposer({ profil, onFini }) {
         </div>
         <div style={{ position: "sticky", top: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#8A8478", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 10 }}>Aper\u00E7u de la fiche</div>
-          <div style={{ marginBottom: 20 }}><Carte a={{ ...f, type_bien: f.type, prix: Number(f.prix) || 0, chambres: Number(f.chambres) || 0, sdb: Number(f.sdb) || 0, surface: Number(f.surface) || 0, photos: photos.map((p) => p.url), agents: { nom_agence: profil.nom_agence, telephone: profil.telephone }, quartier: f.quartier || "Quartier", description: f.desc || "Votre description appara\u00EEtra ici\u2026" }} /></div>
+          <div style={{ marginBottom: 20 }}><Carte a={{ ...f, type_bien: f.type, prix: Number(f.prix) || 0, chambres: Number(f.chambres) || 0, sdb: Number(f.sdb) || 0, surface: Number(f.surface) || 0, photos: photos.map((p) => p.url), agents: { nom_agence: profil.nom_agence, telephone: profil.telephone, statut_abonnement: profil.statut_abonnement }, quartier: f.quartier || "Quartier", description: f.desc || "Votre description appara\u00EEtra ici\u2026" }} /></div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#8A8478", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 10 }}>Texte pr\u00EAt pour WhatsApp / Facebook</div>
           <div style={{ background: "#fff", borderRadius: 12, padding: 16, border: "1px solid #EDE7D8", fontSize: 13, whiteSpace: "pre-wrap", lineHeight: 1.6, color: "#3A362E", fontFamily: "monospace" }}>{texteWhatsApp}</div>
           <button onClick={copier} style={{ width: "100%", marginTop: 10, background: copied ? "#C89B3C" : "#3A362E", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{copied ? <><Check size={16} /> Copi\u00E9 !</> : <><Copy size={16} /> Copier le texte</>}</button>
