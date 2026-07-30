@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Home, Search, Plus, MapPin, Phone, Copy, Check, Filter, Building2, Bed, Bath, Maximize, Loader2, AlertCircle, LogOut, User, Trash2, Archive, Shield, CheckCircle2, XCircle, Users } from "lucide-react";
+import { Home, Search, Plus, MapPin, Phone, Copy, Check, Filter, Building2, Bed, Bath, Maximize, Loader2, AlertCircle, LogOut, User, Trash2, Archive, Shield, CheckCircle2, XCircle, Users, Camera, X, ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 
 const SUPABASE_URL = "https://vpaqnqfszznlsemnppry.supabase.co";
 const SUPABASE_KEY = "sb_publishable_aRhXVeFAcC5_gTYMFBM7cw_hkThQjgu";
@@ -154,15 +154,41 @@ function Catalogue() {
 
 function Carte({ a, actions }) {
   const agent = a.agents?.nom_agence || "Agent"; const tel = a.agents?.telephone || ""; const type = a.type_bien || a.type;
+  const photos = a.photos || [];
+  const [idx, setIdx] = useState(0);
+  const aDesPhotos = photos.length > 0;
   return (
     <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.06)", border: "1px solid #EDE7D8", display: "flex", flexDirection: "column" }}>
-      <div style={{ background: a.couleur || "#2E5E4E", color: "#fff", padding: "18px 18px 14px", position: "relative" }}>
-        <span style={{ position: "absolute", top: 14, right: 14, background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{a.transaction}</span>
-        <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}><Building2 size={13} /> {type}</div>
-        <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>{fmtPrix(a.prix)}<span style={{ fontSize: 13, fontWeight: 500, opacity: 0.8 }}>{a.unite}</span></div>
-        <div style={{ fontSize: 13, marginTop: 8, display: "flex", alignItems: "center", gap: 4, opacity: 0.95 }}><MapPin size={13} /> {a.quartier}, {a.ville}</div>
-      </div>
+      {aDesPhotos ? (
+        <div style={{ position: "relative", height: 190, background: "#EDE7D8" }}>
+          <img src={photos[idx]} alt={`${type} ${a.quartier}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          {/* dégradé + infos prix par-dessus la photo */}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(0,0,0,0.55))" }} />
+          <span style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.55)", color: "#fff", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{a.transaction}</span>
+          {photos.length > 1 && (
+            <>
+              <button onClick={() => setIdx((idx - 1 + photos.length) % photos.length)} style={navPhoto("left")}><ChevronLeft size={18} /></button>
+              <button onClick={() => setIdx((idx + 1) % photos.length)} style={navPhoto("right")}><ChevronRight size={18} /></button>
+              <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
+                {photos.map((_, i) => <span key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: i === idx ? "#fff" : "rgba(255,255,255,0.5)" }} />)}
+              </div>
+            </>
+          )}
+          <div style={{ position: "absolute", bottom: 12, left: 14, color: "#fff" }}>
+            <div style={{ fontSize: 12, opacity: 0.9, display: "flex", alignItems: "center", gap: 4 }}><Building2 size={13} /> {type}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{fmtPrix(a.prix)}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.85 }}>{a.unite}</span></div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ background: a.couleur || "#2E5E4E", color: "#fff", padding: "18px 18px 14px", position: "relative" }}>
+          <span style={{ position: "absolute", top: 14, right: 14, background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{a.transaction}</span>
+          <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}><Building2 size={13} /> {type}</div>
+          <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>{fmtPrix(a.prix)}<span style={{ fontSize: 13, fontWeight: 500, opacity: 0.8 }}>{a.unite}</span></div>
+          <div style={{ fontSize: 13, marginTop: 8, display: "flex", alignItems: "center", gap: 4, opacity: 0.95 }}><MapPin size={13} /> {a.quartier}, {a.ville}</div>
+        </div>
+      )}
       <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column" }}>
+        {aDesPhotos && <div style={{ fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 4, color: "#5A5548" }}><MapPin size={13} /> {a.quartier}, {a.ville}</div>}
         <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 13, color: "#5A5548" }}>{a.chambres ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bed size={14} /> {a.chambres}</span> : null}{a.sdb ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bath size={14} /> {a.sdb}</span> : null}{a.surface ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Maximize size={14} /> {a.surface} m²</span> : null}</div>
         <p style={{ fontSize: 14, color: "#5A5548", lineHeight: 1.5, margin: "0 0 14px", flex: 1 }}>{a.description}</p>
         <div style={{ borderTop: "1px solid #EDE7D8", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -203,41 +229,89 @@ function MesAnnonces({ profil }) {
 
 function Deposer({ profil, onFini }) {
   const [f, setF] = useState({ type: TYPES[0], transaction: TRANSACTIONS[0], ville: profil?.ville_principale || VILLES[0], quartier: "", prix: "", unite: "/mois", chambres: "", sdb: "", surface: "", desc: "", couleur: COULEURS[0] });
+  const [photos, setPhotos] = useState([]);
+  const [uploadEnCours, setUploadEnCours] = useState(false);
   const [copied, setCopied] = useState(false); const [envoi, setEnvoi] = useState(false); const [erreur, setErreur] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target ? e.target.value : e });
-  const pret = f.quartier && f.prix && f.desc;
-  const texteWhatsApp = `🏠 *${f.type.toUpperCase()} ${f.transaction.toUpperCase()}*\n📍 ${f.quartier}, ${f.ville}\n💰 ${f.prix ? fmtPrix(Number(f.prix)) + f.unite : "—"}\n${f.chambres ? `🛏️ ${f.chambres} chambre(s)  ` : ""}${f.sdb ? `🚿 ${f.sdb} douche(s)  ` : ""}${f.surface ? `📐 ${f.surface} m²` : ""}\n\n${f.desc}\n\n📞 Contact : ${profil?.nom_agence || ""} — +237 ${profil?.telephone || ""}\n\n_Publié via Ndap237_`;
+  const pret = f.quartier && f.prix && f.desc && photos.length > 0;
+
+  async function ajouterPhotos(e) {
+    const fichiers = Array.from(e.target.files || []);
+    if (fichiers.length === 0) return;
+    if (photos.length + fichiers.length > 5) { setErreur("5 photos maximum par annonce."); return; }
+    setErreur(null); setUploadEnCours(true);
+    try {
+      const nouvelles = [];
+      for (const fichier of fichiers) {
+        if (fichier.size > 5 * 1024 * 1024) { throw new Error(`"${fichier.name}" depasse 5 Mo. Choisissez une image plus legere.`); }
+        const ext = fichier.name.split(".").pop();
+        const chemin = `${profil.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error } = await supabase.storage.from("photos-annonces").upload(chemin, fichier, { cacheControl: "3600", upsert: false });
+        if (error) throw error;
+        const { data } = supabase.storage.from("photos-annonces").getPublicUrl(chemin);
+        nouvelles.push({ url: data.publicUrl, chemin });
+      }
+      setPhotos([...photos, ...nouvelles]);
+    } catch (err) { setErreur(err.message || "Erreur lors de l'envoi des photos."); }
+    setUploadEnCours(false);
+    e.target.value = "";
+  }
+
+  async function retirerPhoto(i) {
+    const p = photos[i];
+    supabase.storage.from("photos-annonces").remove([p.chemin]);
+    setPhotos(photos.filter((_, j) => j !== i));
+  }
+
+  const texteWhatsApp = `\u{1F3E0} *${f.type.toUpperCase()} ${f.transaction.toUpperCase()}*\n\u{1F4CD} ${f.quartier}, ${f.ville}\n\u{1F4B0} ${f.prix ? fmtPrix(Number(f.prix)) + f.unite : "\u2014"}\n${f.chambres ? `\u{1F6CF}\uFE0F ${f.chambres} chambre(s)  ` : ""}${f.sdb ? `\u{1F6BF} ${f.sdb} douche(s)  ` : ""}${f.surface ? `\u{1F4D0} ${f.surface} m\u00B2` : ""}\n\n${f.desc}\n\n\u{1F4DE} Contact : ${profil?.nom_agence || ""} \u2014 +237 ${profil?.telephone || ""}\n\n_Publi\u00E9 via Ndap237_`;
   const copier = () => { navigator.clipboard?.writeText(texteWhatsApp); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   async function publier() {
     setEnvoi(true); setErreur(null);
     try {
-      const { error } = await supabase.from("annonces").insert({ agent_id: profil.id, type_bien: f.type, transaction: f.transaction, ville: f.ville, quartier: f.quartier, prix: Number(f.prix), unite: f.unite, chambres: Number(f.chambres) || 0, sdb: Number(f.sdb) || 0, surface: Number(f.surface) || 0, description: f.desc, couleur: f.couleur });
-      if (error) { if (error.message?.includes("LIMITE_GRATUITE")) throw new Error("Vous avez atteint la limite de 3 annonces du palier gratuit. Passez à l'abonnement payant pour publier davantage."); throw error; }
+      const { error } = await supabase.from("annonces").insert({ agent_id: profil.id, type_bien: f.type, transaction: f.transaction, ville: f.ville, quartier: f.quartier, prix: Number(f.prix), unite: f.unite, chambres: Number(f.chambres) || 0, sdb: Number(f.sdb) || 0, surface: Number(f.surface) || 0, description: f.desc, couleur: f.couleur, photos: photos.map((p) => p.url) });
+      if (error) { if (error.message?.includes("LIMITE_GRATUITE")) throw new Error("Vous avez atteint la limite de 3 annonces du palier gratuit. Passez a l'abonnement payant pour publier davantage."); throw error; }
       onFini();
     } catch (err) { setErreur(err.message || "Erreur."); setEnvoi(false); }
   }
-  if (!profil) return <div style={{ textAlign: "center", padding: 40, color: "#8A8478" }}><Loader2 size={32} style={{ animation: "spin 1s linear infinite" }} /><p>Chargement du profil…</p></div>;
+  if (!profil) return <div style={{ textAlign: "center", padding: 40, color: "#8A8478" }}><Loader2 size={32} style={{ animation: "spin 1s linear infinite" }} /><p>Chargement du profil\u2026</p></div>;
   return (
     <div>
-      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", letterSpacing: "-0.5px" }}>Déposer une annonce</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", letterSpacing: "-0.5px" }}>D\u00E9poser une annonce</h1>
       <p style={{ margin: "0 0 24px", color: "#8A8478" }}>Publie sous : <strong>{profil.nom_agence}</strong> (+237 {profil.telephone})</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)", border: "1px solid #EDE7D8" }}>
+          <Field label={`Photos du bien * (${photos.length}/5)`}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {photos.map((p, i) => (
+                <div key={i} style={{ position: "relative", width: 76, height: 76, borderRadius: 8, overflow: "hidden", border: "1px solid #E3DCCB" }}>
+                  <img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <button onClick={() => retirerPhoto(i)} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}><X size={12} /></button>
+                </div>
+              ))}
+              {photos.length < 5 && (
+                <label style={{ width: 76, height: 76, borderRadius: 8, border: "2px dashed #C9C2B2", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: uploadEnCours ? "wait" : "pointer", color: "#8A8478", gap: 2 }}>
+                  {uploadEnCours ? <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} /> : <><Camera size={20} /><span style={{ fontSize: 10 }}>Ajouter</span></>}
+                  <input type="file" accept="image/*" multiple onChange={ajouterPhotos} disabled={uploadEnCours} style={{ display: "none" }} />
+                </label>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: "#8A8478", marginTop: 6 }}>Au moins 1 photo. Formats image, 5 Mo max chacune. La 1re photo sera la principale.</div>
+          </Field>
           <div style={{ display: "flex", gap: 10 }}><Field label="Type de bien"><select style={inp} value={f.type} onChange={set("type")}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field><Field label="Transaction"><select style={inp} value={f.transaction} onChange={set("transaction")}>{TRANSACTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field></div>
           <div style={{ display: "flex", gap: 10 }}><Field label="Ville"><select style={inp} value={f.ville} onChange={set("ville")}>{VILLES.map((v) => <option key={v}>{v}</option>)}</select></Field><Field label="Quartier *"><input style={inp} value={f.quartier} onChange={set("quartier")} placeholder="Ex : Bonapriso" /></Field></div>
-          <div style={{ display: "flex", gap: 10 }}><Field label="Prix (XAF) *"><input style={inp} type="number" value={f.prix} onChange={set("prix")} placeholder="250000" /></Field><Field label="Unité"><select style={inp} value={f.unite} onChange={set("unite")}><option value="/mois">/mois</option><option value="">total</option></select></Field></div>
-          <div style={{ display: "flex", gap: 10 }}><Field label="Chambres"><input style={inp} type="number" value={f.chambres} onChange={set("chambres")} placeholder="2" /></Field><Field label="Douches"><input style={inp} type="number" value={f.sdb} onChange={set("sdb")} placeholder="2" /></Field><Field label="Surface m²"><input style={inp} type="number" value={f.surface} onChange={set("surface")} placeholder="90" /></Field></div>
-          <Field label="Description *"><textarea style={{ ...inp, minHeight: 70, resize: "vertical" }} value={f.desc} onChange={set("desc")} placeholder="Décrivez le bien…" /></Field>
-          <Field label="Couleur de la fiche"><div style={{ display: "flex", gap: 8 }}>{COULEURS.map((c) => <button key={c} onClick={() => set("couleur")(c)} style={{ width: 32, height: 32, borderRadius: 8, background: c, border: f.couleur === c ? "3px solid #2A2620" : "3px solid transparent", cursor: "pointer" }} />)}</div></Field>
+          <div style={{ display: "flex", gap: 10 }}><Field label="Prix (XAF) *"><input style={inp} type="number" value={f.prix} onChange={set("prix")} placeholder="250000" /></Field><Field label="Unit\u00E9"><select style={inp} value={f.unite} onChange={set("unite")}><option value="/mois">/mois</option><option value="">total</option></select></Field></div>
+          <div style={{ display: "flex", gap: 10 }}><Field label="Chambres"><input style={inp} type="number" value={f.chambres} onChange={set("chambres")} placeholder="2" /></Field><Field label="Douches"><input style={inp} type="number" value={f.sdb} onChange={set("sdb")} placeholder="2" /></Field><Field label="Surface m\u00B2"><input style={inp} type="number" value={f.surface} onChange={set("surface")} placeholder="90" /></Field></div>
+          <Field label="Description *"><textarea style={{ ...inp, minHeight: 70, resize: "vertical" }} value={f.desc} onChange={set("desc")} placeholder="D\u00E9crivez le bien\u2026" /></Field>
           {erreur && <ErreurBox message={erreur} />}
-          <button disabled={!pret || envoi} onClick={publier} style={{ width: "100%", marginTop: 8, background: (pret && !envoi) ? "#2E5E4E" : "#C9C2B2", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: (pret && !envoi) ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{envoi ? <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Publication…</> : <><Plus size={18} /> Publier dans le catalogue</>}</button>
+          <button disabled={!pret || envoi || uploadEnCours} onClick={publier} style={{ width: "100%", marginTop: 8, background: (pret && !envoi && !uploadEnCours) ? "#2E5E4E" : "#C9C2B2", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: (pret && !envoi && !uploadEnCours) ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{envoi ? <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Publication\u2026</> : <><Plus size={18} /> Publier dans le catalogue</>}</button>
+          {!pret && photos.length === 0 && <div style={{ fontSize: 12, color: "#8A8478", textAlign: "center", marginTop: 8 }}>Ajoutez au moins une photo pour pouvoir publier.</div>}
         </div>
         <div style={{ position: "sticky", top: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#8A8478", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 10 }}>Aperçu de la fiche</div>
-          <div style={{ marginBottom: 20 }}><Carte a={{ ...f, type_bien: f.type, prix: Number(f.prix) || 0, chambres: Number(f.chambres) || 0, sdb: Number(f.sdb) || 0, surface: Number(f.surface) || 0, agents: { nom_agence: profil.nom_agence, telephone: profil.telephone }, quartier: f.quartier || "Quartier", description: f.desc || "Votre description apparaîtra ici…" }} /></div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#8A8478", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 10 }}>Texte prêt pour WhatsApp / Facebook</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#8A8478", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 10 }}>Aper\u00E7u de la fiche</div>
+          <div style={{ marginBottom: 20 }}><Carte a={{ ...f, type_bien: f.type, prix: Number(f.prix) || 0, chambres: Number(f.chambres) || 0, sdb: Number(f.sdb) || 0, surface: Number(f.surface) || 0, photos: photos.map((p) => p.url), agents: { nom_agence: profil.nom_agence, telephone: profil.telephone }, quartier: f.quartier || "Quartier", description: f.desc || "Votre description appara\u00EEtra ici\u2026" }} /></div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#8A8478", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 10 }}>Texte pr\u00EAt pour WhatsApp / Facebook</div>
           <div style={{ background: "#fff", borderRadius: 12, padding: 16, border: "1px solid #EDE7D8", fontSize: 13, whiteSpace: "pre-wrap", lineHeight: 1.6, color: "#3A362E", fontFamily: "monospace" }}>{texteWhatsApp}</div>
-          <button onClick={copier} style={{ width: "100%", marginTop: 10, background: copied ? "#C89B3C" : "#3A362E", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{copied ? <><Check size={16} /> Copié !</> : <><Copy size={16} /> Copier le texte</>}</button>
+          <button onClick={copier} style={{ width: "100%", marginTop: 10, background: copied ? "#C89B3C" : "#3A362E", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{copied ? <><Check size={16} /> Copi\u00E9 !</> : <><Copy size={16} /> Copier le texte</>}</button>
         </div>
       </div>
     </div>
@@ -354,4 +428,5 @@ const navBtn = (active) => ({ display: "flex", alignItems: "center", gap: 6, bac
 const ongletBtn = (active) => ({ flex: 1, background: active ? "#fff" : "transparent", color: active ? "#2E5E4E" : "#8A8478", border: "none", borderRadius: 8, padding: "10px", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: active ? "0 1px 4px rgba(0,0,0,0.08)" : "none" });
 const miniBtn = { background: "#F5F1E8", border: "1px solid #E3DCCB", borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: "#5A5548", display: "flex", alignItems: "center" };
 const adminBtn = { border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minWidth: 90 };
+const navPhoto = (cote) => ({ position: "absolute", top: "50%", transform: "translateY(-50%)", [cote]: 8, background: "rgba(0,0,0,0.45)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" });
 
