@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Home, Search, Plus, MapPin, Phone, Copy, Check, Filter, Building2, Bed, Bath, Maximize, Loader2, AlertCircle, LogOut, User, Trash2, Archive } from "lucide-react";
+import { Home, Search, Plus, MapPin, Phone, Copy, Check, Filter, Building2, Bed, Bath, Maximize, Loader2, AlertCircle, LogOut, User, Trash2, Archive, Shield, CheckCircle2, XCircle, Users } from "lucide-react";
 
 const SUPABASE_URL = "https://vpaqnqfszznlsemnppry.supabase.co";
 const SUPABASE_KEY = "sb_publishable_aRhXVeFAcC5_gTYMFBM7cw_hkThQjgu";
@@ -45,6 +45,7 @@ export default function Ndap237() {
               <>
                 <button onClick={() => setVue("deposer")} style={navBtn(vue === "deposer")}><Plus size={16} /> Déposer</button>
                 <button onClick={() => setVue("mes-annonces")} style={navBtn(vue === "mes-annonces")}><User size={16} /> Mes annonces</button>
+                {profil?.est_admin && <button onClick={() => setVue("admin")} style={navBtn(vue === "admin")}><Shield size={16} /> Admin</button>}
                 <button onClick={deconnexion} style={{ ...navBtn(false) }}><LogOut size={16} /></button>
               </>
             ) : (
@@ -59,6 +60,7 @@ export default function Ndap237() {
           : (vue === "connexion" || !session) ? <Connexion onConnecte={() => setVue("deposer")} />
           : vue === "deposer" ? <Deposer profil={profil} session={session} onFini={() => setVue("mes-annonces")} />
           : vue === "mes-annonces" ? <MesAnnonces profil={profil} />
+          : vue === "admin" ? (profil?.est_admin ? <Admin /> : <div style={{ textAlign: "center", padding: 60, color: "#8A8478" }}>Accès réservé à l'administrateur.</div>)
           : null}
       </main>
       <footer style={{ textAlign: "center", padding: "20px", fontSize: 12, color: "#8A8478", borderTop: "1px solid #E3DCCB" }}>Ndap237 — La vitrine immobilière des agents camerounais</footer>
@@ -242,6 +244,108 @@ function Deposer({ profil, onFini }) {
   );
 }
 
+// ============================================================
+//  ADMIN — tableau de bord (réservé à l'admin)
+// ============================================================
+function Admin() {
+  const [agents, setAgents] = useState([]);
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState(null);
+  const [q, setQ] = useState("");
+  const [enCours, setEnCours] = useState(null); // id de l'agent en cours de modification
+
+  useEffect(() => { charger(); }, []);
+  async function charger() {
+    setChargement(true); setErreur(null);
+    // agents + nombre d'annonces actives
+    const { data, error } = await supabase
+      .from("agents")
+      .select("*, annonces(count)")
+      .order("cree_le", { ascending: false });
+    if (error) { setErreur(error.message); setChargement(false); return; }
+    setAgents(data || []); setChargement(false);
+  }
+
+  async function activer(agent) {
+    setEnCours(agent.id);
+    // abonnement actif pour 30 jours à partir d'aujourd'hui
+    const expire = new Date(); expire.setDate(expire.getDate() + 30);
+    const { error } = await supabase.from("agents")
+      .update({ statut_abonnement: "actif", abonnement_expire_le: expire.toISOString().slice(0, 10) })
+      .eq("id", agent.id);
+    if (error) setErreur(error.message);
+    await charger(); setEnCours(null);
+  }
+
+  async function desactiver(agent) {
+    setEnCours(agent.id);
+    const { error } = await supabase.from("agents")
+      .update({ statut_abonnement: "gratuit", abonnement_expire_le: null })
+      .eq("id", agent.id);
+    if (error) setErreur(error.message);
+    await charger(); setEnCours(null);
+  }
+
+  const filtres = agents.filter((a) => (a.nom_agence + " " + a.telephone + " " + (a.ville_principale || "")).toLowerCase().includes(q.toLowerCase()));
+  const nbActifs = agents.filter((a) => a.statut_abonnement === "actif").length;
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px", display: "flex", alignItems: "center", gap: 10 }}><Shield size={26} color="#2E5E4E" /> Tableau de bord admin</h1>
+      <p style={{ margin: "0 0 20px", color: "#8A8478" }}>{agents.length} agent{agents.length > 1 ? "s" : ""} inscrit{agents.length > 1 ? "s" : ""} • {nbActifs} abonnement{nbActifs > 1 ? "s" : ""} actif{nbActifs > 1 ? "s" : ""}</p>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", borderRadius: 10, padding: "10px 14px", marginBottom: 20, border: "1px solid #EDE7D8" }}>
+        <Search size={18} color="#8A8478" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un agent par nom, téléphone, ville…" style={{ border: "none", background: "transparent", outline: "none", width: "100%", fontSize: 15, color: "#2A2620" }} />
+      </div>
+
+      {erreur && <ErreurBox message={erreur} />}
+
+      {chargement ? <div style={{ textAlign: "center", padding: 40 }}><Loader2 size={32} style={{ animation: "spin 1s linear infinite" }} /></div>
+        : filtres.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: "#8A8478" }}>Aucun agent trouvé.</div>
+        : (
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #EDE7D8", overflow: "hidden" }}>
+            {filtres.map((a, i) => {
+              const nbAnnonces = a.annonces?.[0]?.count ?? 0;
+              const actif = a.statut_abonnement === "actif";
+              return (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderTop: i === 0 ? "none" : "1px solid #F0EBDE", flexWrap: "wrap" }}>
+                  <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}>
+                      {a.nom_agence}
+                      {a.est_admin && <span style={{ background: "#2E5E4E", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 20 }}>ADMIN</span>}
+                    </div>
+                    <div style={{ fontSize: 13, color: "#8A8478" }}>+237 {a.telephone} • {a.ville_principale || "—"} • {nbAnnonces} annonce{nbAnnonces > 1 ? "s" : ""}</div>
+                  </div>
+
+                  <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 600, color: actif ? "#2E5E4E" : "#B0894A" }}>
+                    {actif ? <><CheckCircle2 size={16} /> Actif{a.abonnement_expire_le ? ` (jusqu'au ${a.abonnement_expire_le})` : ""}</> : <><XCircle size={16} /> Gratuit</>}
+                  </div>
+
+                  <div style={{ flex: "0 0 auto" }}>
+                    {actif ? (
+                      <button disabled={enCours === a.id} onClick={() => desactiver(a)} style={{ ...adminBtn, background: "#F5F1E8", color: "#8A3B2A", border: "1px solid #E5B8AE" }}>
+                        {enCours === a.id ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : "Désactiver"}
+                      </button>
+                    ) : (
+                      <button disabled={enCours === a.id} onClick={() => activer(a)} style={{ ...adminBtn, background: "#2E5E4E", color: "#fff" }}>
+                        {enCours === a.id ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : "Activer (30 j)"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+      <p style={{ fontSize: 12, color: "#8A8478", marginTop: 16, lineHeight: 1.5 }}>
+        « Activer » passe l'agent en abonnement illimité pour 30 jours. Fais-le après réception du paiement Mobile Money. À l'expiration, reviens le désactiver s'il n'a pas renouvelé.
+      </p>
+    </div>
+  );
+}
+
 function ErreurBox({ message }) { return <div style={{ background: "#FBEAE7", border: "1px solid #E5B8AE", borderRadius: 10, padding: "12px 14px", margin: "12px 0", display: "flex", gap: 10, alignItems: "flex-start", color: "#8A3B2A" }}><AlertCircle size={18} style={{ flexShrink: 0, marginTop: 1 }} /><div style={{ fontSize: 13, lineHeight: 1.5 }}>{message}</div></div>; }
 function Field({ label, children }) { return <div style={{ marginBottom: 14, flex: 1 }}><label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#5A5548", marginBottom: 5 }}>{label}</label>{children}</div>; }
 function Select({ value, onChange, placeholder, options, icon }) { return <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F5F1E8", borderRadius: 9, padding: "8px 12px", flex: "1 1 160px" }}><span style={{ color: "#8A8478" }}>{icon}</span><select value={value} onChange={(e) => onChange(e.target.value)} style={{ border: "none", background: "transparent", outline: "none", width: "100%", fontSize: 14, color: "#2A2620", cursor: "pointer" }}><option value="">{placeholder}</option>{options.map((o) => <option key={o} value={o}>{o}</option>)}</select></div>; }
@@ -249,4 +353,5 @@ const inp = { width: "100%", boxSizing: "border-box", border: "1px solid #E3DCCB
 const navBtn = (active) => ({ display: "flex", alignItems: "center", gap: 6, background: active ? "#C89B3C" : "rgba(255,255,255,0.12)", color: active ? "#2E5E4E" : "#F5F1E8", border: "none", borderRadius: 9, padding: "9px 14px", fontSize: 14, fontWeight: 700, cursor: "pointer" });
 const ongletBtn = (active) => ({ flex: 1, background: active ? "#fff" : "transparent", color: active ? "#2E5E4E" : "#8A8478", border: "none", borderRadius: 8, padding: "10px", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: active ? "0 1px 4px rgba(0,0,0,0.08)" : "none" });
 const miniBtn = { background: "#F5F1E8", border: "1px solid #E3DCCB", borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: "#5A5548", display: "flex", alignItems: "center" };
+const adminBtn = { border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minWidth: 90 };
 
