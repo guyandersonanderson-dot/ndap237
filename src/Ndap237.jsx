@@ -243,6 +243,54 @@ function Deposer({ profil, onFini }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target ? e.target.value : e });
   const pret = f.quartier && f.prix && f.desc && photos.length > 0;
 
+  // Applique un filigrane discret (nom agence + téléphone) en bas de la photo,
+  // directement dans le navigateur, avant l'envoi. Renvoie un Blob JPEG.
+  function appliquerFiligrane(fichier) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(fichier);
+      img.onload = () => {
+        try {
+          // On limite la taille max pour alléger (max 1600px de large)
+          const maxW = 1600;
+          const ratio = img.width > maxW ? maxW / img.width : 1;
+          const w = Math.round(img.width * ratio);
+          const h = Math.round(img.height * ratio);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+
+          // Bandeau semi-transparent en bas
+          const texte = `${profil.nom_agence}  •  +237 ${profil.telephone}`;
+          const taillePolice = Math.max(16, Math.round(w * 0.028));
+          const padding = Math.round(taillePolice * 0.6);
+          const bandeauH = taillePolice + padding * 2;
+          ctx.fillStyle = "rgba(0,0,0,0.45)";
+          ctx.fillRect(0, h - bandeauH, w, bandeauH);
+
+          // Texte du filigrane
+          ctx.font = `600 ${taillePolice}px sans-serif`;
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.textBaseline = "middle";
+          ctx.fillText(texte, padding, h - bandeauH / 2);
+
+          // Petite signature Ndap237 à droite
+          ctx.font = `${Math.round(taillePolice * 0.75)}px sans-serif`;
+          ctx.fillStyle = "rgba(255,255,255,0.7)";
+          const sig = "Ndap237";
+          const sigW = ctx.measureText(sig).width;
+          ctx.fillText(sig, w - sigW - padding, h - bandeauH / 2);
+
+          URL.revokeObjectURL(url);
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Traitement image échoué")), "image/jpeg", 0.85);
+        } catch (e) { reject(e); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image illisible")); };
+      img.src = url;
+    });
+  }
+
   async function ajouterPhotos(e) {
     const fichiers = Array.from(e.target.files || []);
     if (fichiers.length === 0) return;
@@ -252,9 +300,10 @@ function Deposer({ profil, onFini }) {
       const nouvelles = [];
       for (const fichier of fichiers) {
         if (fichier.size > 5 * 1024 * 1024) { throw new Error(`"${fichier.name}" depasse 5 Mo. Choisissez une image plus legere.`); }
-        const ext = fichier.name.split(".").pop();
-        const chemin = `${profil.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error } = await supabase.storage.from("photos-annonces").upload(chemin, fichier, { cacheControl: "3600", upsert: false });
+        // Appliquer le filigrane avant l'envoi
+        const blobFiligrane = await appliquerFiligrane(fichier);
+        const chemin = `${profil.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { error } = await supabase.storage.from("photos-annonces").upload(chemin, blobFiligrane, { cacheControl: "3600", upsert: false, contentType: "image/jpeg" });
         if (error) throw error;
         const { data } = supabase.storage.from("photos-annonces").getPublicUrl(chemin);
         nouvelles.push({ url: data.publicUrl, chemin });
@@ -303,7 +352,7 @@ function Deposer({ profil, onFini }) {
                 </label>
               )}
             </div>
-            <div style={{ fontSize: 11, color: "#8A8478", marginTop: 6 }}>Au moins 1 photo. Formats image, 5 Mo max chacune. La 1re photo sera la principale.</div>
+            <div style={{ fontSize: 11, color: "#8A8478", marginTop: 6 }}>Au moins 1 photo. Formats image, 5 Mo max chacune. La 1re photo sera la principale. 🔒 Votre nom et téléphone sont ajoutés automatiquement en filigrane pour protéger vos photos.</div>
           </Field>
           <div style={{ display: "flex", gap: 10 }}><Field label="Type de bien"><select style={inp} value={f.type} onChange={set("type")}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field><Field label="Transaction"><select style={inp} value={f.transaction} onChange={set("transaction")}>{TRANSACTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field></div>
           <div style={{ display: "flex", gap: 10 }}><Field label="Ville"><select style={inp} value={f.ville} onChange={set("ville")}>{VILLES.map((v) => <option key={v}>{v}</option>)}</select></Field><Field label="Quartier *"><input style={inp} value={f.quartier} onChange={set("quartier")} placeholder="Ex : Bonapriso" /></Field></div>
