@@ -127,6 +127,7 @@ function Connexion({ onConnecte }) {
 function Catalogue() {
   const [annonces, setAnnonces] = useState([]); const [chargement, setChargement] = useState(true); const [erreur, setErreur] = useState(null);
   const [q, setQ] = useState(""); const [ville, setVille] = useState(""); const [type, setType] = useState(""); const [trans, setTrans] = useState("");
+  const [selection, setSelection] = useState(null); // annonce ouverte en détail
   useEffect(() => { charger(); }, []);
   async function charger() {
     setChargement(true); setErreur(null);
@@ -153,21 +154,23 @@ function Catalogue() {
       </div>
       {erreur ? <ErreurBox message={erreur} /> : chargement ? <div style={{ textAlign: "center", padding: 60, color: "#8A8478" }}><Loader2 size={40} style={{ animation: "spin 1s linear infinite" }} /><p>Chargement…</p></div>
         : filtres.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#8A8478" }}><Search size={40} style={{ opacity: 0.4, marginBottom: 12 }} /><p>{annonces.length === 0 ? "Aucune annonce pour l'instant." : "Aucun bien ne correspond à votre recherche."}</p></div>
-        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>{filtres.map((a) => <Carte key={a.id} a={a} />)}</div>}
+        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>{filtres.map((a) => <Carte key={a.id} a={a} onOuvrir={() => setSelection(a)} />)}</div>}
+      {selection && <DetailAnnonce a={selection} onFermer={() => setSelection(null)} />}
     </div>
   );
 }
 
-function Carte({ a, actions }) {
+function Carte({ a, actions, onOuvrir }) {
   const agent = a.agents?.nom_agence || "Agent"; const tel = a.agents?.telephone || ""; const type = a.type_bien || a.type;
   const estPro = a.agents?.statut_abonnement === "actif";
   const photos = a.photos || [];
   const [idx, setIdx] = useState(0);
   const aDesPhotos = photos.length > 0;
+  const clic = onOuvrir ? { onClick: onOuvrir, style: { cursor: "pointer" } } : {};
   return (
     <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: estPro ? "0 4px 16px rgba(200,155,60,0.28)" : "0 2px 10px rgba(0,0,0,0.06)", border: estPro ? "2px solid #C89B3C" : "1px solid #EDE7D8", display: "flex", flexDirection: "column" }}>
       {aDesPhotos ? (
-        <div style={{ position: "relative", height: 190, background: "#EDE7D8" }}>
+        <div {...clic} style={{ position: "relative", height: 190, background: "#EDE7D8", ...(clic.style || {}) }}>
           <img src={photos[idx]} alt={`${type} ${a.quartier}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           {/* dégradé + infos prix par-dessus la photo */}
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(0,0,0,0.55))" }} />
@@ -175,8 +178,8 @@ function Carte({ a, actions }) {
           {estPro && <span style={{ position: "absolute", top: 12, left: 12, background: "#C89B3C", color: "#2E5E4E", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", gap: 3 }}><BadgeCheck size={13} /> PRO</span>}
           {photos.length > 1 && (
             <>
-              <button onClick={() => setIdx((idx - 1 + photos.length) % photos.length)} style={navPhoto("left")}><ChevronLeft size={18} /></button>
-              <button onClick={() => setIdx((idx + 1) % photos.length)} style={navPhoto("right")}><ChevronRight size={18} /></button>
+              <button onClick={(e) => { e.stopPropagation(); setIdx((idx - 1 + photos.length) % photos.length); }} style={navPhoto("left")}><ChevronLeft size={18} /></button>
+              <button onClick={(e) => { e.stopPropagation(); setIdx((idx + 1) % photos.length); }} style={navPhoto("right")}><ChevronRight size={18} /></button>
               <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
                 {photos.map((_, i) => <span key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: i === idx ? "#fff" : "rgba(255,255,255,0.5)" }} />)}
               </div>
@@ -188,7 +191,7 @@ function Carte({ a, actions }) {
           </div>
         </div>
       ) : (
-        <div style={{ background: a.couleur || "#2E5E4E", color: "#fff", padding: "18px 18px 14px", position: "relative" }}>
+        <div {...clic} style={{ background: a.couleur || "#2E5E4E", color: "#fff", padding: "18px 18px 14px", position: "relative", ...(clic.style || {}) }}>
           <span style={{ position: "absolute", top: 14, right: 14, background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{a.transaction}</span>
           <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}><Building2 size={13} /> {type}</div>
           <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>{fmtPrix(a.prix)}<span style={{ fontSize: 13, fontWeight: 500, opacity: 0.8 }}>{a.unite}</span></div>
@@ -196,12 +199,14 @@ function Carte({ a, actions }) {
         </div>
       )}
       <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column" }}>
-        {aDesPhotos && <div style={{ fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 4, color: "#5A5548" }}><MapPin size={13} /> {a.quartier}, {a.ville}</div>}
-        <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 13, color: "#5A5548" }}>{a.chambres ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bed size={14} /> {a.chambres}</span> : null}{a.sdb ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bath size={14} /> {a.sdb}</span> : null}{a.surface ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Maximize size={14} /> {a.surface} m²</span> : null}</div>
-        <p style={{ fontSize: 14, color: "#5A5548", lineHeight: 1.5, margin: "0 0 14px", flex: 1 }}>{a.description}</p>
+        <div {...clic} style={{ flex: 1, ...(clic.style || {}) }}>
+          {aDesPhotos && <div style={{ fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 4, color: "#5A5548" }}><MapPin size={13} /> {a.quartier}, {a.ville}</div>}
+          <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 13, color: "#5A5548" }}>{a.chambres ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bed size={14} /> {a.chambres}</span> : null}{a.sdb ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bath size={14} /> {a.sdb}</span> : null}{a.surface ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Maximize size={14} /> {a.surface} m²</span> : null}</div>
+          <p style={{ fontSize: 14, color: "#5A5548", lineHeight: 1.5, margin: "0 0 14px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{a.description}</p>
+        </div>
         <div style={{ borderTop: "1px solid #EDE7D8", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 12, color: "#8A8478", display: "flex", alignItems: "center", gap: 5 }}>{agent}{estPro && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#2E5E4E", fontWeight: 700 }}><BadgeCheck size={14} /> Vérifié</span>}</div>
-          {actions ? actions : <a href={`https://wa.me/237${tel}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, background: "#2E5E4E", color: "#fff", padding: "7px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}><Phone size={14} /> Contacter</a>}
+          {actions ? actions : <a href={`https://wa.me/237${tel}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5, background: "#2E5E4E", color: "#fff", padding: "7px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}><Phone size={14} /> Contacter</a>}
         </div>
       </div>
     </div>
@@ -473,6 +478,89 @@ function Admin() {
       <p style={{ fontSize: 12, color: "#8A8478", marginTop: 16, lineHeight: 1.5 }}>
         « Activer » passe l'agent en abonnement illimité pour 30 jours. Fais-le après réception du paiement Mobile Money. À l'expiration, reviens le désactiver s'il n'a pas renouvelé.
       </p>
+    </div>
+  );
+}
+
+// ============================================================
+//  DÉTAIL ANNONCE — fenêtre qui s'ouvre au clic sur une fiche
+// ============================================================
+function DetailAnnonce({ a, onFermer }) {
+  const photos = a.photos || [];
+  const [idx, setIdx] = useState(0);
+  const agent = a.agents?.nom_agence || "Agent";
+  const tel = a.agents?.telephone || "";
+  const estPro = a.agents?.statut_abonnement === "actif";
+  const type = a.type_bien || a.type;
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onFermer(); if (e.key === "ArrowRight" && photos.length > 1) setIdx((i) => (i + 1) % photos.length); if (e.key === "ArrowLeft" && photos.length > 1) setIdx((i) => (i - 1 + photos.length) % photos.length); };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden"; // empêche le défilement de l'arrière-plan
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, [photos.length, onFermer]);
+
+  return (
+    <div onClick={onFermer} style={{ position: "fixed", inset: 0, background: "rgba(20,18,14,0.75)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, maxWidth: 620, width: "100%", margin: "auto", overflow: "hidden", boxShadow: "0 12px 48px rgba(0,0,0,0.4)" }}>
+        {/* Zone photo */}
+        <div style={{ position: "relative", background: "#1a1a1a" }}>
+          {photos.length > 0 ? (
+            <img src={photos[idx]} alt={`${type} ${a.quartier}`} style={{ width: "100%", maxHeight: 440, objectFit: "contain", display: "block", background: "#000" }} />
+          ) : (
+            <div style={{ height: 220, background: a.couleur || "#2E5E4E", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18 }}>Pas de photo</div>
+          )}
+          {/* bouton fermer */}
+          <button onClick={onFermer} style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}><X size={20} /></button>
+          {estPro && <span style={{ position: "absolute", top: 12, left: 12, background: "#C89B3C", color: "#2E5E4E", padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", gap: 4 }}><BadgeCheck size={14} /> PRO</span>}
+          {photos.length > 1 && (
+            <>
+              <button onClick={() => setIdx((idx - 1 + photos.length) % photos.length)} style={{ ...navPhoto("left"), width: 40, height: 40 }}><ChevronLeft size={22} /></button>
+              <button onClick={() => setIdx((idx + 1) % photos.length)} style={{ ...navPhoto("right"), width: 40, height: 40 }}><ChevronRight size={22} /></button>
+              <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6, background: "rgba(0,0,0,0.4)", padding: "6px 10px", borderRadius: 20 }}>
+                {photos.map((_, i) => <span key={i} onClick={() => setIdx(i)} style={{ width: 8, height: 8, borderRadius: "50%", background: i === idx ? "#fff" : "rgba(255,255,255,0.5)", cursor: "pointer" }} />)}
+              </div>
+              <span style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(0,0,0,0.5)", color: "#fff", padding: "3px 12px", borderRadius: 20, fontSize: 12 }}>{idx + 1} / {photos.length}</span>
+            </>
+          )}
+        </div>
+
+        {/* Miniatures cliquables */}
+        {photos.length > 1 && (
+          <div style={{ display: "flex", gap: 8, padding: "12px 20px 0", overflowX: "auto" }}>
+            {photos.map((p, i) => (
+              <img key={i} src={p} alt="" onClick={() => setIdx(i)} style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: i === idx ? "3px solid #2E5E4E" : "3px solid transparent", flexShrink: 0 }} />
+            ))}
+          </div>
+        )}
+
+        {/* Infos */}
+        <div style={{ padding: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, color: "#8A8478", display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}><Building2 size={15} /> {type} • {a.transaction}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: "#2E5E4E", lineHeight: 1 }}>{fmtPrix(a.prix)}<span style={{ fontSize: 15, fontWeight: 500, color: "#8A8478" }}>{a.unite}</span></div>
+            </div>
+          </div>
+          <div style={{ fontSize: 15, color: "#5A5548", display: "flex", alignItems: "center", gap: 5, marginBottom: 16 }}><MapPin size={16} /> {a.quartier}, {a.ville}</div>
+
+          <div style={{ display: "flex", gap: 20, marginBottom: 16, flexWrap: "wrap" }}>
+            {a.chambres ? <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 15, color: "#3A362E" }}><Bed size={18} /> {a.chambres} chambre{a.chambres > 1 ? "s" : ""}</span> : null}
+            {a.sdb ? <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 15, color: "#3A362E" }}><Bath size={18} /> {a.sdb} douche{a.sdb > 1 ? "s" : ""}</span> : null}
+            {a.surface ? <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 15, color: "#3A362E" }}><Maximize size={18} /> {a.surface} m²</span> : null}
+          </div>
+
+          <p style={{ fontSize: 15, color: "#5A5548", lineHeight: 1.6, margin: "0 0 20px", whiteSpace: "pre-wrap" }}>{a.description}</p>
+
+          <div style={{ borderTop: "1px solid #EDE7D8", paddingTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 14, color: "#5A5548", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontWeight: 600 }}>{agent}</span>
+              {estPro && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#2E5E4E", fontWeight: 700, fontSize: 13 }}><BadgeCheck size={15} /> Vérifié</span>}
+            </div>
+            <a href={`https://wa.me/237${tel}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: "#2E5E4E", color: "#fff", padding: "12px 24px", borderRadius: 10, fontSize: 15, fontWeight: 700, textDecoration: "none" }}><Phone size={18} /> Contacter sur WhatsApp</a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
