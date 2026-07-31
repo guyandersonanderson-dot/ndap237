@@ -40,21 +40,22 @@ export default function Ndap237() {
             <div><div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.5px", lineHeight: 1 }}>Ndap<span style={{ color: "#C89B3C" }}>237</span></div><div style={{ fontSize: 11, opacity: 0.8, letterSpacing: "1px", textTransform: "uppercase" }}>Immobilier Cameroun</div></div>
           </div>
           <nav style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={() => setVue("catalogue")} style={navBtn(vue === "catalogue")}><Search size={16} /> Catalogue</button>
+            <button className="ndap-btn" onClick={() => setVue("catalogue")} style={navBtn(vue === "catalogue")}><Search size={16} /> Catalogue</button>
             {session ? (
               <>
-                <button onClick={() => setVue("deposer")} style={navBtn(vue === "deposer")}><Plus size={16} /> Déposer</button>
-                <button onClick={() => setVue("mes-annonces")} style={navBtn(vue === "mes-annonces")}><User size={16} /> Mes annonces</button>
-                {profil?.est_admin && <button onClick={() => setVue("admin")} style={navBtn(vue === "admin")}><Shield size={16} /> Admin</button>}
+                <button className="ndap-btn" onClick={() => setVue("deposer")} style={navBtn(vue === "deposer")}><Plus size={16} /> Déposer</button>
+                <button className="ndap-btn" onClick={() => setVue("mes-annonces")} style={navBtn(vue === "mes-annonces")}><User size={16} /> Mes annonces</button>
+                {profil?.est_admin && <button className="ndap-btn" onClick={() => setVue("admin")} style={navBtn(vue === "admin")}><Shield size={16} /> Admin</button>}
                 <button onClick={deconnexion} style={{ ...navBtn(false) }}><LogOut size={16} /></button>
               </>
             ) : (
-              <button onClick={() => setVue("connexion")} style={navBtn(vue === "connexion")}><User size={16} /> Espace agent</button>
+              <button className="ndap-btn" onClick={() => setVue("connexion")} style={navBtn(vue === "connexion")}><User size={16} /> Espace agent</button>
             )}
           </nav>
         </div>
       </header>
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 60px" }}>
+        <div className="ndap-view" key={vue}>
         {chargementSession ? <div style={{ textAlign: "center", padding: 60, color: "#8A8478" }}><Loader2 size={40} style={{ animation: "spin 1s linear infinite" }} /></div>
           : vue === "catalogue" ? <Catalogue />
           : (vue === "connexion" || !session) ? <Connexion onConnecte={() => setVue("deposer")} />
@@ -62,9 +63,71 @@ export default function Ndap237() {
           : vue === "mes-annonces" ? <MesAnnonces profil={profil} />
           : vue === "admin" ? (profil?.est_admin ? <Admin /> : <div style={{ textAlign: "center", padding: 60, color: "#8A8478" }}>Accès réservé à l'administrateur.</div>)
           : null}
+        </div>
       </main>
       <footer style={{ textAlign: "center", padding: "20px", fontSize: 12, color: "#8A8478", borderTop: "1px solid #E3DCCB" }}>Ndap237 — La vitrine immobilière des agents camerounais</footer>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Apparition douce vers le haut (ease-out) */
+        @keyframes ndap-rise {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        /* Ouverture fenêtre : zoom + fade */
+        @keyframes ndap-pop {
+          from { opacity: 0; transform: scale(0.96) translateY(8px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        /* Fond qui apparaît en fondu */
+        @keyframes ndap-fade {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        /* Léger fondu latéral pour changement de vue */
+        @keyframes ndap-view {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Courbe d'accélération façon Apple : douce, sans rebond */
+        :root { --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1); }
+
+        .ndap-view { animation: ndap-view 0.45s var(--ease-soft) both; }
+
+        /* Carte : apparition en cascade + survol qui soulève */
+        .ndap-carte {
+          animation: ndap-rise 0.5s var(--ease-soft) both;
+          transition: transform 0.35s var(--ease-soft), box-shadow 0.35s var(--ease-soft);
+          will-change: transform;
+        }
+        .ndap-carte:hover {
+          transform: translateY(-5px);
+        }
+
+        /* Boutons : réaction douce au survol et au clic */
+        .ndap-btn {
+          transition: transform 0.2s var(--ease-soft), box-shadow 0.2s var(--ease-soft), background 0.2s var(--ease-soft), opacity 0.2s var(--ease-soft);
+        }
+        .ndap-btn:hover { transform: translateY(-1px); }
+        .ndap-btn:active { transform: scale(0.97); }
+
+        /* Image dans la carte : très léger zoom au survol de la carte */
+        .ndap-carte .ndap-photo { transition: transform 0.6s var(--ease-soft); }
+        .ndap-carte:hover .ndap-photo { transform: scale(1.04); }
+
+        /* Fenêtre détaillée */
+        .ndap-backdrop { animation: ndap-fade 0.3s ease-out both; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        .ndap-modal { animation: ndap-pop 0.4s var(--ease-soft) both; }
+
+        /* Champs de formulaire : focus doux */
+        .ndap-input:focus { border-color: #2E5E4E !important; box-shadow: 0 0 0 3px rgba(46,94,78,0.12); }
+
+        /* Respecter les préférences d'accessibilité (mouvement réduit) */
+        @media (prefers-reduced-motion: reduce) {
+          * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -109,14 +172,14 @@ function Connexion({ onConnecte }) {
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 4px" }}>{mode === "inscription" ? "Créer votre espace agent" : "Espace agent"}</h1>
         <p style={{ margin: "0 0 20px", color: "#8A8478", fontSize: 14 }}>{mode === "inscription" ? "Publiez vos biens et gérez vos annonces." : "Connectez-vous pour gérer vos annonces."}</p>
         {mode === "inscription" && (<>
-          <Field label="Nom de l'agence *"><input style={inp} value={nomAgence} onChange={(e) => setNomAgence(e.target.value)} placeholder="Agence Bonapriso" /></Field>
-          <Field label="Téléphone WhatsApp *"><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "#8A8478", fontSize: 14 }}>+237</span><input style={inp} value={tel} onChange={(e) => setTel(e.target.value)} placeholder="6XX XXX XXX" /></div></Field>
-          <Field label="Ville principale"><select style={inp} value={ville} onChange={(e) => setVille(e.target.value)}>{VILLES.map((v) => <option key={v}>{v}</option>)}</select></Field>
+          <Field label="Nom de l'agence *"><input className="ndap-input" style={inp} value={nomAgence} onChange={(e) => setNomAgence(e.target.value)} placeholder="Agence Bonapriso" /></Field>
+          <Field label="Téléphone WhatsApp *"><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "#8A8478", fontSize: 14 }}>+237</span><input className="ndap-input" style={inp} value={tel} onChange={(e) => setTel(e.target.value)} placeholder="6XX XXX XXX" /></div></Field>
+          <Field label="Ville principale"><select className="ndap-input" style={inp} value={ville} onChange={(e) => setVille(e.target.value)}>{VILLES.map((v) => <option key={v}>{v}</option>)}</select></Field>
         </>)}
-        <Field label="Email *"><input style={inp} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@email.com" /></Field>
-        <Field label="Mot de passe *"><input style={inp} type="password" value={mdp} onChange={(e) => setMdp(e.target.value)} placeholder="Au moins 6 caractères" /></Field>
+        <Field label="Email *"><input className="ndap-input" style={inp} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@email.com" /></Field>
+        <Field label="Mot de passe *"><input className="ndap-input" style={inp} type="password" value={mdp} onChange={(e) => setMdp(e.target.value)} placeholder="Au moins 6 caractères" /></Field>
         {erreur && <ErreurBox message={erreur} />}
-        <button disabled={envoi || !email || !mdp} onClick={soumettre} style={{ width: "100%", marginTop: 8, background: (!envoi && email && mdp) ? "#2E5E4E" : "#C9C2B2", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: (!envoi && email && mdp) ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <button className="ndap-btn" disabled={envoi || !email || !mdp} onClick={soumettre} style={{ width: "100%", marginTop: 8, background: (!envoi && email && mdp) ? "#2E5E4E" : "#C9C2B2", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: (!envoi && email && mdp) ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           {envoi ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : (mode === "inscription" ? "Créer mon compte" : "Se connecter")}
         </button>
       </div>
@@ -154,24 +217,25 @@ function Catalogue() {
       </div>
       {erreur ? <ErreurBox message={erreur} /> : chargement ? <div style={{ textAlign: "center", padding: 60, color: "#8A8478" }}><Loader2 size={40} style={{ animation: "spin 1s linear infinite" }} /><p>Chargement…</p></div>
         : filtres.length === 0 ? <div style={{ textAlign: "center", padding: 60, color: "#8A8478" }}><Search size={40} style={{ opacity: 0.4, marginBottom: 12 }} /><p>{annonces.length === 0 ? "Aucune annonce pour l'instant." : "Aucun bien ne correspond à votre recherche."}</p></div>
-        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>{filtres.map((a) => <Carte key={a.id} a={a} onOuvrir={() => setSelection(a)} />)}</div>}
+        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>{filtres.map((a, i) => <Carte key={a.id} a={a} i={i} onOuvrir={() => setSelection(a)} />)}</div>}
       {selection && <DetailAnnonce a={selection} onFermer={() => setSelection(null)} />}
     </div>
   );
 }
 
-function Carte({ a, actions, onOuvrir }) {
+function Carte({ a, actions, onOuvrir, i = 0 }) {
   const agent = a.agents?.nom_agence || "Agent"; const tel = a.agents?.telephone || ""; const type = a.type_bien || a.type;
   const estPro = a.agents?.statut_abonnement === "actif";
   const photos = a.photos || [];
   const [idx, setIdx] = useState(0);
   const aDesPhotos = photos.length > 0;
   const clic = onOuvrir ? { onClick: onOuvrir, style: { cursor: "pointer" } } : {};
+  const delai = Math.min(i * 0.06, 0.6); // cascade douce, plafonnée
   return (
-    <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: estPro ? "0 4px 16px rgba(200,155,60,0.28)" : "0 2px 10px rgba(0,0,0,0.06)", border: estPro ? "2px solid #C89B3C" : "1px solid #EDE7D8", display: "flex", flexDirection: "column" }}>
+    <div className={onOuvrir ? "ndap-carte" : ""} style={{ animationDelay: `${delai}s`, background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: estPro ? "0 4px 16px rgba(200,155,60,0.28)" : "0 2px 12px rgba(0,0,0,0.06)", border: estPro ? "2px solid #C89B3C" : "1px solid #EDE7D8", display: "flex", flexDirection: "column" }}>
       {aDesPhotos ? (
-        <div {...clic} style={{ position: "relative", height: 190, background: "#EDE7D8", ...(clic.style || {}) }}>
-          <img src={photos[idx]} alt={`${type} ${a.quartier}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <div {...clic} style={{ position: "relative", height: 190, background: "#EDE7D8", overflow: "hidden", ...(clic.style || {}) }}>
+          <img className="ndap-photo" src={photos[idx]} alt={`${type} ${a.quartier}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           {/* dégradé + infos prix par-dessus la photo */}
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(0,0,0,0.55))" }} />
           <span style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.55)", color: "#fff", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{a.transaction}</span>
@@ -206,7 +270,7 @@ function Carte({ a, actions, onOuvrir }) {
         </div>
         <div style={{ borderTop: "1px solid #EDE7D8", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 12, color: "#8A8478", display: "flex", alignItems: "center", gap: 5 }}>{agent}{estPro && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#2E5E4E", fontWeight: 700 }}><BadgeCheck size={14} /> Vérifié</span>}</div>
-          {actions ? actions : <a href={`https://wa.me/237${tel}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5, background: "#2E5E4E", color: "#fff", padding: "7px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}><Phone size={14} /> Contacter</a>}
+          {actions ? actions : <a className="ndap-btn" href={`https://wa.me/237${tel}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5, background: "#2E5E4E", color: "#fff", padding: "7px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}><Phone size={14} /> Contacter</a>}
         </div>
       </div>
     </div>
@@ -359,13 +423,13 @@ function Deposer({ profil, onFini }) {
             </div>
             <div style={{ fontSize: 11, color: "#8A8478", marginTop: 6 }}>Au moins 1 photo. Formats image, 5 Mo max chacune. La 1re photo sera la principale. 🔒 Votre nom et téléphone sont ajoutés automatiquement en filigrane pour protéger vos photos.</div>
           </Field>
-          <div style={{ display: "flex", gap: 10 }}><Field label="Type de bien"><select style={inp} value={f.type} onChange={set("type")}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field><Field label="Transaction"><select style={inp} value={f.transaction} onChange={set("transaction")}>{TRANSACTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field></div>
-          <div style={{ display: "flex", gap: 10 }}><Field label="Ville"><select style={inp} value={f.ville} onChange={set("ville")}>{VILLES.map((v) => <option key={v}>{v}</option>)}</select></Field><Field label="Quartier *"><input style={inp} value={f.quartier} onChange={set("quartier")} placeholder="Ex : Bonapriso" /></Field></div>
-          <div style={{ display: "flex", gap: 10 }}><Field label="Prix (XAF) *"><input style={inp} type="number" value={f.prix} onChange={set("prix")} placeholder="250000" /></Field><Field label="Unit\u00E9"><select style={inp} value={f.unite} onChange={set("unite")}><option value="/mois">/mois</option><option value="">total</option></select></Field></div>
-          <div style={{ display: "flex", gap: 10 }}><Field label="Chambres"><input style={inp} type="number" value={f.chambres} onChange={set("chambres")} placeholder="2" /></Field><Field label="Douches"><input style={inp} type="number" value={f.sdb} onChange={set("sdb")} placeholder="2" /></Field><Field label="Surface m\u00B2"><input style={inp} type="number" value={f.surface} onChange={set("surface")} placeholder="90" /></Field></div>
-          <Field label="Description *"><textarea style={{ ...inp, minHeight: 70, resize: "vertical" }} value={f.desc} onChange={set("desc")} placeholder="D\u00E9crivez le bien\u2026" /></Field>
+          <div style={{ display: "flex", gap: 10 }}><Field label="Type de bien"><select className="ndap-input" style={inp} value={f.type} onChange={set("type")}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field><Field label="Transaction"><select className="ndap-input" style={inp} value={f.transaction} onChange={set("transaction")}>{TRANSACTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field></div>
+          <div style={{ display: "flex", gap: 10 }}><Field label="Ville"><select className="ndap-input" style={inp} value={f.ville} onChange={set("ville")}>{VILLES.map((v) => <option key={v}>{v}</option>)}</select></Field><Field label="Quartier *"><input className="ndap-input" style={inp} value={f.quartier} onChange={set("quartier")} placeholder="Ex : Bonapriso" /></Field></div>
+          <div style={{ display: "flex", gap: 10 }}><Field label="Prix (XAF) *"><input className="ndap-input" style={inp} type="number" value={f.prix} onChange={set("prix")} placeholder="250000" /></Field><Field label="Unit\u00E9"><select className="ndap-input" style={inp} value={f.unite} onChange={set("unite")}><option value="/mois">/mois</option><option value="">total</option></select></Field></div>
+          <div style={{ display: "flex", gap: 10 }}><Field label="Chambres"><input className="ndap-input" style={inp} type="number" value={f.chambres} onChange={set("chambres")} placeholder="2" /></Field><Field label="Douches"><input className="ndap-input" style={inp} type="number" value={f.sdb} onChange={set("sdb")} placeholder="2" /></Field><Field label="Surface m\u00B2"><input className="ndap-input" style={inp} type="number" value={f.surface} onChange={set("surface")} placeholder="90" /></Field></div>
+          <Field label="Description *"><textarea className="ndap-input" style={{ ...inp, minHeight: 70, resize: "vertical" }} value={f.desc} onChange={set("desc")} placeholder="D\u00E9crivez le bien\u2026" /></Field>
           {erreur && <ErreurBox message={erreur} />}
-          <button disabled={!pret || envoi || uploadEnCours} onClick={publier} style={{ width: "100%", marginTop: 8, background: (pret && !envoi && !uploadEnCours) ? "#2E5E4E" : "#C9C2B2", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: (pret && !envoi && !uploadEnCours) ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{envoi ? <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Publication\u2026</> : <><Plus size={18} /> Publier dans le catalogue</>}</button>
+          <button className="ndap-btn" disabled={!pret || envoi || uploadEnCours} onClick={publier} style={{ width: "100%", marginTop: 8, background: (pret && !envoi && !uploadEnCours) ? "#2E5E4E" : "#C9C2B2", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: (pret && !envoi && !uploadEnCours) ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{envoi ? <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Publication\u2026</> : <><Plus size={18} /> Publier dans le catalogue</>}</button>
           {!pret && photos.length === 0 && <div style={{ fontSize: 12, color: "#8A8478", textAlign: "center", marginTop: 8 }}>Ajoutez au moins une photo pour pouvoir publier.</div>}
         </div>
         <div style={{ position: "sticky", top: 20 }}>
@@ -373,7 +437,7 @@ function Deposer({ profil, onFini }) {
           <div style={{ marginBottom: 20 }}><Carte a={{ ...f, type_bien: f.type, prix: Number(f.prix) || 0, chambres: Number(f.chambres) || 0, sdb: Number(f.sdb) || 0, surface: Number(f.surface) || 0, photos: photos.map((p) => p.url), agents: { nom_agence: profil.nom_agence, telephone: profil.telephone, statut_abonnement: profil.statut_abonnement }, quartier: f.quartier || "Quartier", description: f.desc || "Votre description appara\u00EEtra ici\u2026" }} /></div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#8A8478", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 10 }}>Texte pr\u00EAt pour WhatsApp / Facebook</div>
           <div style={{ background: "#fff", borderRadius: 12, padding: 16, border: "1px solid #EDE7D8", fontSize: 13, whiteSpace: "pre-wrap", lineHeight: 1.6, color: "#3A362E", fontFamily: "monospace" }}>{texteWhatsApp}</div>
-          <button onClick={copier} style={{ width: "100%", marginTop: 10, background: copied ? "#C89B3C" : "#3A362E", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{copied ? <><Check size={16} /> Copi\u00E9 !</> : <><Copy size={16} /> Copier le texte</>}</button>
+          <button className="ndap-btn" onClick={copier} style={{ width: "100%", marginTop: 10, background: copied ? "#C89B3C" : "#3A362E", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{copied ? <><Check size={16} /> Copi\u00E9 !</> : <><Copy size={16} /> Copier le texte</>}</button>
         </div>
       </div>
     </div>
@@ -501,8 +565,8 @@ function DetailAnnonce({ a, onFermer }) {
   }, [photos.length, onFermer]);
 
   return (
-    <div onClick={onFermer} style={{ position: "fixed", inset: 0, background: "rgba(20,18,14,0.75)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, maxWidth: 620, width: "100%", margin: "auto", overflow: "hidden", boxShadow: "0 12px 48px rgba(0,0,0,0.4)" }}>
+    <div onClick={onFermer} className="ndap-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(20,18,14,0.6)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} className="ndap-modal" style={{ background: "#fff", borderRadius: 20, maxWidth: 620, width: "100%", margin: "auto", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
         {/* Zone photo */}
         <div style={{ position: "relative", background: "#1a1a1a" }}>
           {photos.length > 0 ? (
@@ -557,7 +621,7 @@ function DetailAnnonce({ a, onFermer }) {
               <span style={{ fontWeight: 600 }}>{agent}</span>
               {estPro && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#2E5E4E", fontWeight: 700, fontSize: 13 }}><BadgeCheck size={15} /> Vérifié</span>}
             </div>
-            <a href={`https://wa.me/237${tel}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: "#2E5E4E", color: "#fff", padding: "12px 24px", borderRadius: 10, fontSize: 15, fontWeight: 700, textDecoration: "none" }}><Phone size={18} /> Contacter sur WhatsApp</a>
+            <a className="ndap-btn" href={`https://wa.me/237${tel}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: "#2E5E4E", color: "#fff", padding: "12px 24px", borderRadius: 10, fontSize: 15, fontWeight: 700, textDecoration: "none" }}><Phone size={18} /> Contacter sur WhatsApp</a>
           </div>
         </div>
       </div>
