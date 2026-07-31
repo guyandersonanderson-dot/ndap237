@@ -194,7 +194,10 @@ function Catalogue() {
   useEffect(() => { charger(); }, []);
   async function charger() {
     setChargement(true); setErreur(null);
-    const { data, error } = await supabase.from("annonces").select("*, agents(nom_agence, telephone, statut_abonnement)").eq("statut", "active").order("cree_le", { ascending: false });
+    // Filet de sécurité : on n'affiche jamais une annonce de plus de 3 mois,
+    // même si le nettoyage automatique n'est pas encore passé.
+    const limite = new Date(); limite.setMonth(limite.getMonth() - 3);
+    const { data, error } = await supabase.from("annonces").select("*, agents(nom_agence, telephone, statut_abonnement)").eq("statut", "active").gte("cree_le", limite.toISOString()).order("cree_le", { ascending: false });
     if (error) { setErreur(error.message); setChargement(false); return; }
     // Priorité Pro : les annonces d'agents "actif" (Pro) apparaissent en premier
     const triees = (data || []).sort((a, b) => {
@@ -279,27 +282,89 @@ function Carte({ a, actions, onOuvrir, i = 0 }) {
 
 function MesAnnonces({ profil }) {
   const [annonces, setAnnonces] = useState([]); const [chargement, setChargement] = useState(true);
+  const [enCours, setEnCours] = useState(null);
   useEffect(() => { if (profil) charger(); }, [profil]);
   async function charger() { setChargement(true); const { data } = await supabase.from("annonces").select("*").eq("agent_id", profil.id).order("cree_le", { ascending: false }); setAnnonces(data || []); setChargement(false); }
-  async function archiver(id) { await supabase.from("annonces").update({ statut: "archivee" }).eq("id", id); charger(); }
-  async function supprimer(id) { if (!confirm("Supprimer définitivement cette annonce ?")) return; await supabase.from("annonces").delete().eq("id", id); charger(); }
+
+  // Marquer comme loué/vendu : l'annonce quitte le catalogue mais reste dans l'historique
+  async function archiver(id) {
+    setEnCours(id);
+    await supabase.from("annonces").update({ statut: "archivee" }).eq("id", id);
+    await charger(); setEnCours(null);
+  }
+
+  // Remettre en ligne une annonce archivée
+  async function reactiver(id) {
+    setEnCours(id);
+    const { error } = await supabase.from("annonces").update({ statut: "active" }).eq("id", id);
+    if (error && error.message?.includes("LIMITE_GRATUITE")) alert("Vous avez déjà 3 annonces actives (palier gratuit). Passez à l'abonnement Pro pour en remettre une de plus en ligne.");
+    await charger(); setEnCours(null);
+  }
+
+  // Suppression définitive : on efface aussi les photos du stockage
+  async function supprimer(a) {
+    if (!confirm("Supprimer définitivement cette annonce et ses photos ?\n\nCette action est irréversible.")) return;
+    setEnCours(a.id);
+    try {
+      const chemins = (a.photos || [])
+        .map((url) => url.split("/photos-annonces/")[1])
+        .filter(Boolean);
+      if (chemins.length) await supabase.storage.from("photos-annonces").remove(chemins);
+      await supabase.from("annonces").delete().eq("id", a.id);
+    } catch (e) { /* on continue quand même */ }
+    await charger(); setEnCours(null);
+  }
+
+  // Jours restants avant suppression automatique (3 mois après création)
+  function joursRestants(a) {
+    const cree = new Date(a.cree_le);
+    const limite = new Date(cree); limite.setMonth(limite.getMonth() + 3);
+    return Math.ceil((limite - new Date()) / 86400000);
+  }
+
   if (!profil) return <div style={{ textAlign: "center", padding: 40, color: "#8A8478" }}>Chargement du profil…</div>;
   return (
     <div>
       <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 4px" }}>Mes annonces</h1>
-      <p style={{ margin: "0 0 20px", color: "#8A8478" }}>{profil.nom_agence} • {profil.statut_abonnement === "actif" ? "Abonnement actif — annonces illimitées" : `Palier gratuit — ${annonces.filter(a => a.statut === "active").length}/3 annonces actives`}</p>
+      <p style={{ margin: "0 0 8px", color: "#8A8478" }}>{profil.nom_agence} • {profil.statut_abonnement === "actif" ? "Abonnement actif — annonces illimitées" : `Palier gratuit — ${annonces.filter(a => a.statut === "active").length}/3 annonces actives`}</p>
+      <p style={{ margin: "0 0 20px", fontSize: 13, color: "#8A8478", display: "flex", alignItems: "center", gap: 6 }}>
+        <AlertCircle size={14} /> Bien loué ou vendu ? Cliquez sur « Loué / Vendu » pour le retirer du catalogue. Les annonces sont supprimées automatiquement après 3 mois.
+      </p>
       {chargement ? <div style={{ textAlign: "center", padding: 40 }}><Loader2 size={32} style={{ animation: "spin 1s linear infinite" }} /></div>
         : annonces.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: "#8A8478" }}>Vous n'avez pas encore d'annonce.</div>
-        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>{annonces.map((a) => (
-            <div key={a.id} style={{ opacity: a.statut === "archivee" ? 0.55 : 1 }}>
-              <Carte a={{ ...a, agents: { nom_agence: profil.nom_agence, telephone: profil.telephone, statut_abonnement: profil.statut_abonnement } }} actions={
-                <div style={{ display: "flex", gap: 6 }}>
-                  {a.statut === "active" && <button onClick={() => archiver(a.id)} title="Marquer comme loué/vendu" style={miniBtn}><Archive size={14} /></button>}
-                  <button onClick={() => supprimer(a.id)} title="Supprimer" style={{ ...miniBtn, color: "#A63D2A" }}><Trash2 size={14} /></button>
-                </div>
-              } />
+        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>{annonces.map((a) => {
+            const jours = joursRestants(a);
+            const bientot = jours <= 14;
+            return (
+            <div key={a.id}>
+              <div style={{ opacity: a.statut === "archivee" ? 0.6 : 1 }}>
+                <Carte a={{ ...a, agents: { nom_agence: profil.nom_agence, telephone: profil.telephone, statut_abonnement: profil.statut_abonnement } }} actions={
+                  <span style={{ fontSize: 12, fontWeight: 700, color: a.statut === "archivee" ? "#8A8478" : "#2E5E4E" }}>
+                    {a.statut === "archivee" ? "Retirée du catalogue" : "En ligne"}
+                  </span>
+                } />
+              </div>
+              {/* Barre d'actions sous la fiche */}
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                {a.statut === "active" ? (
+                  <button className="ndap-btn" disabled={enCours === a.id} onClick={() => archiver(a.id)} style={{ ...actionBtn, background: "#2E5E4E", color: "#fff" }}>
+                    {enCours === a.id ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <><Archive size={14} /> Loué / Vendu</>}
+                  </button>
+                ) : (
+                  <button className="ndap-btn" disabled={enCours === a.id} onClick={() => reactiver(a.id)} style={{ ...actionBtn, background: "#F5F1E8", color: "#2E5E4E", border: "1px solid #C9C2B2" }}>
+                    {enCours === a.id ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <>↩ Remettre en ligne</>}
+                  </button>
+                )}
+                <button className="ndap-btn" disabled={enCours === a.id} onClick={() => supprimer(a)} style={{ ...actionBtn, background: "#FBEAE7", color: "#8A3B2A", border: "1px solid #E5B8AE" }}>
+                  <Trash2 size={14} /> Supprimer
+                </button>
+              </div>
+              {/* Compte à rebours avant suppression automatique */}
+              <div style={{ fontSize: 11, color: bientot ? "#A63D2A" : "#8A8478", marginTop: 6, fontWeight: bientot ? 700 : 400 }}>
+                {jours > 0 ? `Suppression automatique dans ${jours} jour${jours > 1 ? "s" : ""}` : "Sera supprimée au prochain nettoyage"}
+              </div>
             </div>
-          ))}</div>}
+          );})}</div>}
     </div>
   );
 }
@@ -636,6 +701,7 @@ const inp = { width: "100%", boxSizing: "border-box", border: "1px solid #E3DCCB
 const navBtn = (active) => ({ display: "flex", alignItems: "center", gap: 6, background: active ? "#C89B3C" : "rgba(255,255,255,0.12)", color: active ? "#2E5E4E" : "#F5F1E8", border: "none", borderRadius: 9, padding: "9px 14px", fontSize: 14, fontWeight: 700, cursor: "pointer" });
 const ongletBtn = (active) => ({ flex: 1, background: active ? "#fff" : "transparent", color: active ? "#2E5E4E" : "#8A8478", border: "none", borderRadius: 8, padding: "10px", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: active ? "0 1px 4px rgba(0,0,0,0.08)" : "none" });
 const miniBtn = { background: "#F5F1E8", border: "1px solid #E3DCCB", borderRadius: 7, padding: "7px 9px", cursor: "pointer", color: "#5A5548", display: "flex", alignItems: "center" };
+const actionBtn = { flex: 1, minWidth: 130, border: "none", borderRadius: 9, padding: "9px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 };
 const adminBtn = { border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minWidth: 90 };
 const navPhoto = (cote) => ({ position: "absolute", top: "50%", transform: "translateY(-50%)", [cote]: 8, background: "rgba(0,0,0,0.45)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" });
 
